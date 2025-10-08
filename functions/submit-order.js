@@ -9,11 +9,14 @@ exports.handler = async function(event, context) {
         const data = JSON.parse(event.body);
         const order = data.contact;
         const marketing = data.marketing || {};
-        
-        // Lấy product_id từ payload gửi lên
         const product_id = data.product_id || 'N/A';
 
-        const user_ip = event.headers['x-nf-client-connection-ip'] || 'N/A';
+        // SỬA LỖI QUAN TRỌNG: Lấy địa chỉ IP thật của người dùng
+        // Header 'x-forwarded-for' chứa một chuỗi các IP, IP đầu tiên là của người dùng.
+        // Netlify cũng cung cấp 'x-nf-client-connection-ip'. Chúng ta sẽ ưu tiên 'x-forwarded-for'.
+        const forwardedIps = event.headers['x-forwarded-for'];
+        const user_ip = forwardedIps ? forwardedIps.split(',')[0].trim() : (event.headers['x-nf-client-connection-ip'] || 'N/A');
+        
         const user_agent = event.headers['user-agent'] || 'N/A';
 
         const supabase = createClient(
@@ -35,7 +38,7 @@ exports.handler = async function(event, context) {
 
             // Dữ liệu marketing
             landing_page_url: marketing.landing_page,
-            user_ip: user_ip,
+            user_ip: user_ip, // Sử dụng IP đã được xử lý
             user_agent: user_agent,
             utm_source: marketing.utm_source,
             utm_medium: marketing.utm_medium,
@@ -43,7 +46,7 @@ exports.handler = async function(event, context) {
             utm_term: marketing.utm_term,
             utm_content: marketing.utm_content,
 
-            // THÊM DỮ LIỆU MỚI
+            // Dữ liệu sản phẩm
             product_id: product_id
         });
 
