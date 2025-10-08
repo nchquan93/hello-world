@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import fetch from 'node-fetch'; // SỬ DỤNG import thay vì require
+import fetch from 'node-fetch';
 
-export const handler = async (event, context) => { // SỬ DỤNG export const thay vì exports.handler
+export const handler = async (event, context) => {
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
     }
@@ -20,7 +20,12 @@ export const handler = async (event, context) => { // SỬ DỤNG export const t
             process.env.SUPABASE_SERVICE_KEY
         );
 
-        const { data: insertedData, error } = await supabase.from('orders').insert({ 
+        // Tạo một đối tượng ngày giờ hiện tại
+        const now = new Date();
+
+        // Chuẩn bị dữ liệu để ghi vào Supabase
+        const supabasePayload = {
+            created_at: now.toISOString(), // Gửi giờ UTC chuẩn
             full_name: order.full_name, phone_number: order.phone_number, country: order.country,
             address_details: order.address_details, address_level_1: order.address_level_1,
             address_level_2: order.address_level_2, address_level_3: order.address_level_3,
@@ -29,27 +34,50 @@ export const handler = async (event, context) => { // SỬ DỤNG export const t
             utm_source: marketing.utm_source, utm_medium: marketing.utm_medium,
             utm_campaign: marketing.utm_campaign, utm_term: marketing.utm_term,
             utm_content: marketing.utm_content, product_id: product_id
-        }).select().single();
+        };
 
-        if (error) { throw new Error(error.message); }
+        const { data: insertedData, error } = await supabase
+            .from('orders')
+            .insert(supabasePayload)
+            .select()
+            .single();
 
+        if (error) { throw new Error(`Supabase Error: ${error.message}`); }
+
+        // Gửi bản sao đến Google Sheets
         if (process.env.GOOGLE_SCRIPT_URL && insertedData) {
-            const { data: gmt7Data, error: gmt7Error } = await supabase
-                .from('orders_gmt7')
-                .select('created_at_gmt7')
-                .eq('id', insertedData.id)
-                .single();
+            console.log('Preparing to send data to Google Sheet.');
+
+            // Tự tính toán giờ GMT+7
+            const gmt7Time = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+            const gmt7ISOString = gmt7Time.toISOString();
 
             const payloadForSheet = {
                 ...insertedData,
-                created_at_gmt7: gmt7Error ? insertedData.created_at : gmt7Data.created_at_gmt7
+                created_at_gmt7: gmt7ISOString // Sử dụng giờ đã tính toán
             };
             
-            fetch(process.env.GOOGLE_SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payloadForSheet)
-            }).catch(e => console.error("Error sending to Google Sheet:", e));
+            // Sử dụng await để chắc chắn rằng chúng ta có thể log kết quả
+            try {
+                console.log('Sending fetch request to Google Script URL...');
+                const sheetResponse = await fetch(process.env.GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payloadForSheet),
+                    redirect: 'follow' // Thêm dòng này để xử lý chuyển hướng của Google
+                });
+
+                // Google Script thường trả về HTML, nên chúng ta đọc text
+                const responseText = await sheetResponse.text();
+                console.log('Google Sheet response status:', sheetResponse.status);
+                console.log('Google Sheet response body:', responseText);
+
+                if (!sheetResponse.ok) {
+                    console.error('Google Sheet returned an error status.');
+                }
+            } catch (e) {
+                console.error("Error during fetch to Google Sheet:", e);
+            }
         }
 
         return {
