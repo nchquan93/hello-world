@@ -1,9 +1,0 @@
-{
-  "dependencies": {
-    "@supabase/supabase-js": "^2.0.0"
-  },
-  "devDependencies": {
-    "@netlify/plugin-functions-core": "^3.0.0",
-    "@netlify/plugin-npm-cache": "^2.0.0"
-  }
-}
