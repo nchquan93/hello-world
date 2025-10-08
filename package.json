@@ -1,8 +1,5 @@
 {
   "dependencies": {
     "@supabase/supabase-js": "^2.0.0"
-  },
-  "devDependencies": {
-    "@netlify/plugin-cache": "^2.0.0"
   }
 }
