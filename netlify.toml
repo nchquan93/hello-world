@@ -3,3 +3,9 @@
 
 [[plugins]]
 package = "@netlify/plugin-functions-install-core"
+
+[[plugins]]
+package = "@netlify/plugin-npm-cache"
+  [plugins.inputs]
+  # Optional: specify npm cache directory if not in the default location
+  # cacheDir = ".npm"
