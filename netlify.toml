@@ -2,7 +2,4 @@
   functions = "functions"
 
 [functions]
-  node_bundler = "zisi"
-
-[[plugins]]
-package = "@netlify/plugin-cache"
+  node_bundler = "esbuild"
