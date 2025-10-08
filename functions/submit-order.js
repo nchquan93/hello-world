@@ -1,8 +1,6 @@
-// Import Supabase SDK
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async function(event, context) {
-    // Chỉ cho phép phương thức POST
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
     }
@@ -10,15 +8,20 @@ exports.handler = async function(event, context) {
     try {
         const data = JSON.parse(event.body);
         const order = data.contact;
+        const marketing = data.marketing || {}; // Lấy thông tin marketing
 
-        // Kết nối đến Supabase
+        // Lấy IP và User-Agent từ headers của Netlify
+        const user_ip = event.headers['x-nf-client-connection-ip'] || 'N/A';
+        const user_agent = event.headers['user-agent'] || 'N/A';
+
         const supabase = createClient(
             process.env.SUPABASE_URL,
             process.env.SUPABASE_SERVICE_KEY
         );
 
-        // Chèn dữ liệu vào bảng 'orders'
+        // Chèn dữ liệu, bao gồm cả các trường marketing mới
         const { error } = await supabase.from('orders').insert({ 
+            // Dữ liệu đơn hàng
             full_name: order.full_name,
             phone_number: order.phone_number,
             country: order.country,
@@ -27,14 +30,25 @@ exports.handler = async function(event, context) {
             address_level_2: order.address_level_2,
             address_level_3: order.address_level_3,
             selected_product: order.selected_product,
-            note: order.note
+            note: order.note,
+
+            // Dữ liệu marketing
+            landing_page_url: marketing.landing_page,
+            user_ip: user_ip,
+            user_agent: user_agent,
+            utm_source: marketing.utm_source,
+            utm_medium: marketing.utm_medium,
+            utm_campaign: marketing.utm_campaign,
+            utm_term: marketing.utm_term,
+            utm_content: marketing.utm_content
         });
 
         if (error) {
-            throw error;
+            // Log lỗi chi tiết hơn để dễ gỡ lỗi
+            console.error('Supabase insert error:', error);
+            throw new Error(error.message);
         }
 
-        // Trả về phản hồi thành công
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -42,7 +56,7 @@ exports.handler = async function(event, context) {
         };
 
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error in function execution:', error);
         return {
             statusCode: 500,
             body: JSON.stringify({ success: false, message: error.message })
