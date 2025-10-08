@@ -8,9 +8,11 @@ exports.handler = async function(event, context) {
     try {
         const data = JSON.parse(event.body);
         const order = data.contact;
-        const marketing = data.marketing || {}; // Lấy thông tin marketing
+        const marketing = data.marketing || {};
+        
+        // Lấy product_id từ payload gửi lên
+        const product_id = data.product_id || 'N/A';
 
-        // Lấy IP và User-Agent từ headers của Netlify
         const user_ip = event.headers['x-nf-client-connection-ip'] || 'N/A';
         const user_agent = event.headers['user-agent'] || 'N/A';
 
@@ -19,7 +21,6 @@ exports.handler = async function(event, context) {
             process.env.SUPABASE_SERVICE_KEY
         );
 
-        // Chèn dữ liệu, bao gồm cả các trường marketing mới
         const { error } = await supabase.from('orders').insert({ 
             // Dữ liệu đơn hàng
             full_name: order.full_name,
@@ -40,11 +41,13 @@ exports.handler = async function(event, context) {
             utm_medium: marketing.utm_medium,
             utm_campaign: marketing.utm_campaign,
             utm_term: marketing.utm_term,
-            utm_content: marketing.utm_content
+            utm_content: marketing.utm_content,
+
+            // THÊM DỮ LIỆU MỚI
+            product_id: product_id
         });
 
         if (error) {
-            // Log lỗi chi tiết hơn để dễ gỡ lỗi
             console.error('Supabase insert error:', error);
             throw new Error(error.message);
         }
